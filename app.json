@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "EmpireCodes Hub",
+    "slug": "empirecodes-hub",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#020202",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ng.com.empirecodes.hub"
+    },
+    "android": {
+      "package": "ng.com.empirecodes.hub"
+    }
+  }
+}
