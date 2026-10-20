@@ -4,17 +4,32 @@
     "slug": "empirecodes-hub",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "backgroundColor": "#020202",
-      "resizeMode": "contain"
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#020202"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ng.com.empirecodes.hub"
+      "bundleIdentifier": "ng.com.empirecodes.hub",
+      "icon": "./assets/icon.png"
     },
     "android": {
-      "package": "ng.com.empirecodes.hub"
+      "package": "ng.com.empirecodes.hub",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#020202"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "de89b1a2-95e9-4965-96f4-3c6fd40af743"
+      }
     }
   }
 }
