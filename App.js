@@ -373,9 +373,10 @@ export default function App() {
   const [rfqNotes, setRfqNotes] = useState('');
 
   // Microservices DRF Backend Configuration
-  const [apiBaseUrl, setApiBaseUrl] = useState('https://empirecodes-backend.onrender.com');
+  const [apiBaseUrl, setApiBaseUrl] = useState('https://empirecodes-backend-drf.onrender.com');
   const [showHostModal, setShowHostModal] = useState(false);
-  const [customHostInput, setCustomHostInput] = useState('https://empirecodes-backend.onrender.com');
+  const [customHostInput, setCustomHostInput] = useState('https://empirecodes-backend-drf.onrender.com');
+
 
   // Client User Identity & Orders
   const [clientName, setClientName] = useState('');
@@ -1984,16 +1985,17 @@ Transmitted via: EmpireCodes Mobile App`;
             <TouchableOpacity
               style={[
                 styles.hostPresetBtn,
-                apiBaseUrl === 'https://empirecodes-backend.onrender.com' && styles.hostPresetBtnActive,
+                apiBaseUrl === 'https://empirecodes-backend-drf.onrender.com' && styles.hostPresetBtnActive,
               ]}
               onPress={() => {
-                setApiBaseUrl('https://empirecodes-backend.onrender.com');
-                setCustomHostInput('https://empirecodes-backend.onrender.com');
+                setApiBaseUrl('https://empirecodes-backend-drf.onrender.com');
+                setCustomHostInput('https://empirecodes-backend-drf.onrender.com');
               }}
             >
               <Text style={styles.hostPresetTitle}>☁️ Render Cloud Production</Text>
-              <Text style={styles.hostPresetSub}>https://empirecodes-backend.onrender.com</Text>
+              <Text style={styles.hostPresetSub}>https://empirecodes-backend-drf.onrender.com</Text>
             </TouchableOpacity>
+
 
             <TouchableOpacity
               style={[
