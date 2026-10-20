@@ -17,6 +17,7 @@ import {
   Dimensions,
   Vibration,
 } from 'react-native';
+import { Audio } from 'expo-av';
 
 const { width } = Dimensions.get('window');
 
@@ -299,6 +300,40 @@ function playWarnSound() {
   setTimeout(() => playSynthesizerTone(180, 'sawtooth', 0.2, 0.1), 110);
 }
 
+// ─────────────────────────────────────────────────────────────
+// NATIVE GRAND PIANO AUDIO SAMPLES (Android & iOS Phone Speakers)
+// Salamander Grand Piano acoustic samples via CDN
+// ─────────────────────────────────────────────────────────────
+const PIANO_AUDIO_SAMPLES = {
+  C4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/C4.mp3',
+  D4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/D4.mp3',
+  E4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/E4.mp3',
+  F4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/F4.mp3',
+  G4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/G4.mp3',
+  A4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/A4.mp3',
+  B4: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/B4.mp3',
+  C5: 'https://cdn.jsdelivr.net/gh/fuhton/piano-mp3@master/piano-mp3/C5.mp3',
+};
+
+const playNativePianoNote = async (noteName) => {
+  try {
+    const uri = PIANO_AUDIO_SAMPLES[noteName];
+    if (uri && Audio && Audio.Sound) {
+      const { sound } = await Audio.Sound.createAsync(
+        { uri },
+        { shouldPlay: true, volume: 1.0 }
+      );
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    }
+  } catch (err) {
+    // Graceful fallback
+  }
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // MAIN APPLICATION COMPONENT
 // ═══════════════════════════════════════════════════════════════════
@@ -312,14 +347,6 @@ export default function App() {
   // Modals
   const [selectedArchProject, setSelectedArchProject] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  // Enterprise Role-Based Auth State (Microservice Identity)
-  const [userRole, setUserRole] = useState('client'); // client | company_admin | superuser
-  const [backendUrl, setBackendUrl] = useState('http://192.168.100.13:8000/api');
-  const [isDrfConnected, setIsDrfConnected] = useState(false);
-  const [syncLoading, setSyncLoading] = useState(false);
-
   // Operations Research Interactive Lab State
   const [orCapital, setOrCapital] = useState(50); // ₦50M
   const [orContractors, setOrContractors] = useState(25); // 25 vendors
@@ -339,9 +366,40 @@ export default function App() {
 
   // RFQ Commission Form State
   const [rfqName, setRfqName] = useState('');
+  const [rfqEmail, setRfqEmail] = useState('');
+  const [rfqPhone, setRfqPhone] = useState('');
   const [rfqService, setRfqService] = useState('Fintech & Paystack Integration');
   const [rfqTimeline, setRfqTimeline] = useState('Urgent MVP (1-2 Weeks)');
   const [rfqNotes, setRfqNotes] = useState('');
+
+  // Microservices DRF Backend Configuration
+  const [apiBaseUrl, setApiBaseUrl] = useState('https://empirecodes-backend.onrender.com');
+  const [showHostModal, setShowHostModal] = useState(false);
+  const [customHostInput, setCustomHostInput] = useState('https://empirecodes-backend.onrender.com');
+
+  // Client User Identity & Orders
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [hasIdentified, setHasIdentified] = useState(false);
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
+
+  // Contract Booking & Orders State
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [bookingService, setBookingService] = useState('Fintech & Paystack Architecture');
+  const [bookingBudget, setBookingBudget] = useState('Production MVP');
+  const [bookingTimeline, setBookingTimeline] = useState('Urgent MVP (1-2 Weeks)');
+  const [bookingScope, setBookingScope] = useState('');
+  const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+
+  // User Bookings & Two-Way Contract Chat
+  const [userBookings, setUserBookings] = useState([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+  const [activeChatBookingId, setActiveChatBookingId] = useState(null);
+  const [contractMessages, setContractMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isSendingChat, setIsSendingChat] = useState(false);
+  const [isRefreshingChat, setIsRefreshingChat] = useState(false);
 
   // Active Piano Note Animation
   const [activePianoNote, setActivePianoNote] = useState(null);
@@ -355,19 +413,17 @@ export default function App() {
     termScrollRef.current?.scrollToEnd({ animated: true });
   }, [termOutput]);
 
-  // Secret Logo Tap Counter for Developer/Superuser Access
-  const [logoTapCount, setLogoTapCount] = useState(0);
+  // Configure native mobile audio player for physical devices
+  useEffect(() => {
+    try {
+      Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+    } catch (e) {}
+  }, []);
 
-  const handleLogoTap = () => {
-    const next = logoTapCount + 1;
-    if (next >= 5) {
-      setLogoTapCount(0);
-      setShowAuthModal(true);
-    } else {
-      setLogoTapCount(next);
-      setTimeout(() => setLogoTapCount(0), 3000);
-    }
-  };
 
   // ─────────────────────────────────────────────────────────────
   // OPERATIONS RESEARCH SIMPLEX COMPUTATION
@@ -432,7 +488,11 @@ export default function App() {
   // ─────────────────────────────────────────────────────────────
   const playNote = (note) => {
     setActivePianoNote(note.note);
+    // 1. Web Audio synthesis (for browser / Snack Web)
     playSynthesizerTone(note.freq, 'sine', 1.0, 0.35);
+    // 2. Native audio sample playback (for physical Android / iOS phone speakers)
+    playNativePianoNote(note.note);
+    // 3. Tactile haptic feedback
     try {
       Vibration.vibrate(15);
     } catch (e) {}
@@ -619,11 +679,36 @@ export default function App() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // RFQ COMMISSION TRANSMISSION
+  // BACKEND INTEGRATION & CONTRACT SERVICE HANDLERS
   // ─────────────────────────────────────────────────────────────
-  const transmitRFQ = (platform) => {
+
+  const submitLeadToBackend = async (data) => {
+    try {
+      await fetch(`${apiBaseUrl}/api/leads/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+    } catch (e) {
+      // Offline-first graceful fallback
+    }
+  };
+
+  const transmitRFQ = async (platform) => {
+    // 1. Silent asynchronous persistence to DRF backend
+    submitLeadToBackend({
+      name: rfqName || 'Prospective Client',
+      email: rfqEmail || 'client@empirecodes.com.ng',
+      phone: rfqPhone || '+234...',
+      service_requested: rfqService,
+      budget_range: rfqTimeline,
+      message: rfqNotes || 'General consultation request from EmpireCodes mobile app.',
+    });
+
     const text = `*NEW PROJECT COMMISSION INQUIRY*
 Name/Company: ${rfqName || 'Prospective Client'}
+Email: ${rfqEmail || 'Not specified'}
+WhatsApp Phone: ${rfqPhone || 'Not specified'}
 Domain: ${rfqService}
 Timeline: ${rfqTimeline}
 Requirements: ${rfqNotes || 'General consultation request.'}
@@ -634,29 +719,135 @@ Transmitted via: EmpireCodes Mobile App`;
     } else {
       Linking.openURL(`mailto:matthew123224@gmail.com?subject=${encodeURIComponent('Project Commission: ' + rfqService)}&body=${encodeURIComponent(text)}`);
     }
-    Alert.alert('Transmission Prepared', 'Launching your chosen communication channel.');
+    Alert.alert('Transmission Prepared', 'Inquiry saved to EmpireCodes lead registry and launched communication channel.');
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // DRF BACKEND SYNC (ENTERPRISE MICROSERVICE)
-  // ─────────────────────────────────────────────────────────────
-  const syncWithDjango = async () => {
-    setSyncLoading(true);
+  const handleSaveIdentity = (nameInput, emailInput, phoneInput) => {
+    if (!emailInput.trim()) {
+      Alert.alert('Email Required', 'Please enter your email to view your contracts & orders.');
+      return;
+    }
+    setClientName(nameInput.trim() || 'Client');
+    setClientEmail(emailInput.trim().toLowerCase());
+    setClientPhone(phoneInput.trim());
+    setHasIdentified(true);
+    setShowIdentityModal(false);
+    fetchUserBookings(emailInput.trim().toLowerCase());
+  };
+
+  const fetchUserBookings = async (emailToFetch) => {
+    const targetEmail = (emailToFetch || clientEmail).trim().toLowerCase();
+    if (!targetEmail) return;
+    setIsLoadingBookings(true);
     try {
-      const res = await fetch(`${backendUrl}/dashboard/`, { method: 'GET' });
+      const res = await fetch(`${apiBaseUrl}/api/bookings/?email=${encodeURIComponent(targetEmail)}`);
       if (res.ok) {
-        setIsDrfConnected(true);
-        Alert.alert('Microservice Connected', 'Successfully synchronized live DRF telemetry and PostgreSQL metrics.');
-      } else {
-        throw new Error('Status ' + res.status);
+        const data = await res.json();
+        setUserBookings(data);
       }
-    } catch (e) {
-      setIsDrfConnected(false);
-      Alert.alert('Offline Preview Mode', `Could not reach ${backendUrl}.\nOperating in standalone client preview.`);
+    } catch (err) {
+      // Keep existing state if offline
     } finally {
-      setSyncLoading(false);
+      setIsLoadingBookings(false);
     }
   };
+
+  const handleBookingSubmit = async () => {
+    if (!clientEmail.trim() || !clientName.trim() || !clientPhone.trim()) {
+      Alert.alert('Identity Details Required', 'Please ensure your Name, Email, and WhatsApp Phone are provided before booking.');
+      return;
+    }
+    if (!bookingScope.trim()) {
+      Alert.alert('Project Scope Required', 'Please enter a summary of your system requirements or architecture goals.');
+      return;
+    }
+    setIsSubmittingBooking(true);
+    try {
+      const payload = {
+        client_name: clientName.trim(),
+        client_email: clientEmail.trim().toLowerCase(),
+        client_phone: clientPhone.trim(),
+        service_title: bookingService,
+        budget_tier: bookingBudget,
+        timeline: bookingTimeline,
+        project_scope: bookingScope.trim(),
+      };
+      const res = await fetch(`${apiBaseUrl}/api/bookings/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        playSuccessSound();
+        Alert.alert(
+          'Contract Booked Successfully! 🏛️',
+          `Order #${created.id} logged. Anthony and the architecture team will review your scope. You can now chat directly with us below!`
+        );
+        setShowBookingModal(false);
+        setBookingScope('');
+        setUserBookings((prev) => [created, ...prev]);
+        setActiveChatBookingId(created.id);
+        fetchContractMessages(created.id);
+      } else {
+        Alert.alert('Booking Error', 'Could not save contract to server. You can also book directly via WhatsApp.');
+      }
+    } catch (err) {
+      Alert.alert(
+        'Server Offline — Booking via WhatsApp',
+        `Could not reach ${apiBaseUrl}. Launching direct WhatsApp transmission.`
+      );
+      Linking.openURL(`https://wa.me/2348173057810?text=${encodeURIComponent(`*NEW CONTRACT COMMISSION*\nClient: ${clientName}\nEmail: ${clientEmail}\nService: ${bookingService}\nBudget: ${bookingBudget}\nScope: ${bookingScope}`)}`);
+    } finally {
+      setIsSubmittingBooking(false);
+    }
+  };
+
+  const fetchContractMessages = async (bookingId) => {
+    if (!bookingId) return;
+    setIsRefreshingChat(true);
+    try {
+      const res = await fetch(`${apiBaseUrl}/api/bookings/${bookingId}/messages/`);
+      if (res.ok) {
+        const msgs = await res.json();
+        setContractMessages(msgs);
+      }
+    } catch (e) {
+      // Graceful offline
+    } finally {
+      setIsRefreshingChat(false);
+    }
+  };
+
+  const sendContractMessage = async () => {
+    if (!chatInput.trim() || !activeChatBookingId) return;
+    const msgToSend = chatInput.trim();
+    setChatInput('');
+    playBlip();
+    setIsSendingChat(true);
+    try {
+      const payload = {
+        sender_name: clientName || 'Client',
+        message: msgToSend,
+        is_staff: false,
+      };
+      const res = await fetch(`${apiBaseUrl}/api/bookings/${activeChatBookingId}/messages/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setContractMessages((prev) => [...prev, saved]);
+      }
+    } catch (e) {
+      Alert.alert('Transmission Failed', 'Could not send message. Please check internet connection.');
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -666,18 +857,18 @@ Transmitted via: EmpireCodes Mobile App`;
           TOP HEADER & BRAND IDENTITY
           ═════════════════════════════════════════════════════════════ */}
       <View style={styles.topHeader}>
-        <TouchableOpacity onPress={handleLogoTap} activeOpacity={0.8}>
+        <View>
           <Text style={styles.brandTitle}>EMPIRECODES</Text>
           <Text style={styles.brandSubtitle}>Anthony Oluwaseun Matthew • The Dark Architect</Text>
-        </TouchableOpacity>
+        </View>
 
         <View style={styles.headerRight}>
           <TouchableOpacity
-            style={[styles.rolePill, userRole === 'superuser' ? styles.pillSuper : userRole === 'company_admin' ? styles.pillAdmin : styles.pillClient]}
-            onPress={() => setShowAuthModal(true)}
+            style={styles.statusLivePill}
+            onPress={() => Linking.openURL('https://wa.me/2348173057810')}
           >
-            <View style={[styles.dot, userRole === 'superuser' ? styles.dotSuper : styles.dotClient]} />
-            <Text style={styles.roleText}>{userRole.toUpperCase()}</Text>
+            <View style={styles.livePulseDot} />
+            <Text style={styles.statusLiveText}>ONLINE</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1139,7 +1330,7 @@ Transmitted via: EmpireCodes Mobile App`;
         <View style={[styles.sectionCard, styles.rfqCard]}>
           <Text style={styles.sectionLabel}>COMMISSION THE ARCHITECT</Text>
           <Text style={styles.rfqTitle}>Initiate Direct Engineering Request</Text>
-          <Text style={styles.rfqSub}>Specify your project scope below for instant transmission to WhatsApp or Email:</Text>
+          <Text style={styles.rfqSub}>Specify your project scope below for instant transmission to WhatsApp, Email, and DRF Lead Registry:</Text>
 
           <Text style={styles.inputLabel}>YOUR NAME / COMPANY</Text>
           <TextInput
@@ -1148,6 +1339,27 @@ Transmitted via: EmpireCodes Mobile App`;
             onChangeText={setRfqName}
             placeholder="e.g. Acme Corp / Alex"
             placeholderTextColor="#666"
+          />
+
+          <Text style={styles.inputLabel}>OFFICIAL EMAIL (FOR QUOTE & NOTIFICATIONS)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={rfqEmail}
+            onChangeText={setRfqEmail}
+            placeholder="e.g. alex@acmecorp.com"
+            placeholderTextColor="#666"
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+
+          <Text style={styles.inputLabel}>WHATSAPP PHONE NUMBER (STRICTLY PREFERRED)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={rfqPhone}
+            onChangeText={setRfqPhone}
+            placeholder="e.g. +234 813 536 2561"
+            placeholderTextColor="#666"
+            keyboardType="phone-pad"
           />
 
           <Text style={styles.inputLabel}>SYSTEM DOMAIN</Text>
@@ -1187,6 +1399,229 @@ Transmitted via: EmpireCodes Mobile App`;
             <TouchableOpacity style={styles.transmitMailBtn} onPress={() => transmitRFQ('email')}>
               <Text style={styles.transmitBtnText}>✉️ TRANSMIT TO EMAIL</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ═════════════════════════════════════════════════════════════
+            SECTION 10B: CLIENT CONTRACT PORTAL & LIVE CHAT (MY ORDERS)
+            ═════════════════════════════════════════════════════════════ */}
+        <View style={[styles.sectionCard, styles.clientPortalCard]}>
+          <View style={styles.sectionHeaderRow}>
+            <View>
+              <Text style={styles.sectionLabel}>CLIENT PORTAL & ORDERS</Text>
+              <Text style={styles.clientPortalSubtitle}>Book software contracts & chat live with the architect</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.hostConfigBtn}
+              onPress={() => setShowHostModal(true)}
+            >
+              <Text style={styles.hostConfigBtnText}>⚙️ API HOST</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* User Session Bar */}
+          <View style={styles.sessionBox}>
+            {hasIdentified ? (
+              <View style={styles.sessionActiveRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sessionStatusText}>🟢 ACTIVE CLIENT SESSION</Text>
+                  <Text style={styles.sessionNameText}>{clientName} • <Text style={{ color: '#d4af37' }}>{clientEmail}</Text></Text>
+                  {clientPhone ? <Text style={styles.sessionPhoneText}>WhatsApp: {clientPhone}</Text> : null}
+                </View>
+                <TouchableOpacity
+                  style={styles.switchSessionBtn}
+                  onPress={() => setShowIdentityModal(true)}
+                >
+                  <Text style={styles.switchSessionBtnText}>SWITCH</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.sessionPromptRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sessionPromptTitle}>Track Your Bookings & Chat</Text>
+                  <Text style={styles.sessionPromptSub}>Enter your email to view your contracts and chat with Anthony.</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.identifyBtn}
+                  onPress={() => setShowIdentityModal(true)}
+                >
+                  <Text style={styles.identifyBtnText}>SIGN IN / IDENTIFY</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          {/* Action Row: Book New Contract + Refresh Orders */}
+          <View style={styles.portalActionRow}>
+            <TouchableOpacity
+              style={styles.bookContractMainBtn}
+              onPress={() => {
+                if (!hasIdentified) {
+                  setShowIdentityModal(true);
+                } else {
+                  setShowBookingModal(true);
+                }
+              }}
+            >
+              <Text style={styles.bookContractMainBtnText}>+ BOOK NEW ARCHITECTURAL CONTRACT</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.refreshOrdersBtn}
+              onPress={() => fetchUserBookings(clientEmail)}
+            >
+              {isLoadingBookings ? (
+                <ActivityIndicator size="small" color="#d4af37" />
+              ) : (
+                <Text style={styles.refreshOrdersBtnText}>🔄 REFRESH</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* User Contracts / Orders Section */}
+          <View style={styles.ordersListContainer}>
+            <Text style={styles.ordersListTitle}>MY ACTIVE ORDERS & CONTRACTS</Text>
+
+            {!hasIdentified ? (
+              <View style={styles.emptyOrdersBox}>
+                <Text style={styles.emptyOrdersText}>Identify with your email above to load your active contracts.</Text>
+              </View>
+            ) : userBookings.length === 0 ? (
+              <View style={styles.emptyOrdersBox}>
+                <Text style={styles.emptyOrdersText}>No contract bookings found for {clientEmail}.</Text>
+                <Text style={styles.emptyOrdersSub}>Tap "+ BOOK NEW ARCHITECTURAL CONTRACT" to commission your project.</Text>
+              </View>
+            ) : (
+              userBookings.map((bk) => (
+                <View key={bk.id} style={styles.orderContractCard}>
+                  <View style={styles.orderHeaderRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.orderIdBadge}>ORDER #{bk.id}</Text>
+                      <Text style={styles.orderServiceTitle}>{bk.service_title}</Text>
+                    </View>
+                    <View style={[
+                      styles.orderStatusPill,
+                      bk.status === 'completed' ? styles.statusGreen :
+                      bk.status === 'in_progress' ? styles.statusCyan :
+                      bk.status === 'audit' ? styles.statusPurple : styles.statusAmber
+                    ]}>
+                      <Text style={styles.orderStatusPillText}>
+                        {bk.status === 'pending' ? '⏳ PENDING REVIEW' :
+                         bk.status === 'accepted' ? '✅ ACCEPTED' :
+                         bk.status === 'in_progress' ? '🚀 IN PROGRESS' :
+                         bk.status === 'audit' ? '🛡️ ACID AUDIT' :
+                         bk.status === 'completed' ? '🌟 DELIVERED' : bk.status.toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.orderMetaGrid}>
+                    <Text style={styles.orderMetaItem}>Tier: <Text style={styles.orderMetaVal}>{bk.budget_tier}</Text></Text>
+                    <Text style={styles.orderMetaItem}>Timeline: <Text style={styles.orderMetaVal}>{bk.timeline}</Text></Text>
+                  </View>
+
+                  <Text style={styles.orderScopePreview} numberOfLines={2}>
+                    {bk.project_scope}
+                  </Text>
+
+                  {/* Toggle Chat Desk */}
+                  <TouchableOpacity
+                    style={[
+                      styles.openChatToggleBtn,
+                      activeChatBookingId === bk.id && styles.openChatToggleBtnActive
+                    ]}
+                    onPress={() => {
+                      if (activeChatBookingId === bk.id) {
+                        setActiveChatBookingId(null);
+                      } else {
+                        setActiveChatBookingId(bk.id);
+                        fetchContractMessages(bk.id);
+                      }
+                    }}
+                  >
+                    <Text style={styles.openChatToggleBtnText}>
+                      {activeChatBookingId === bk.id
+                        ? '▲ CLOSE LIVE CONTRACT CHAT'
+                        : '💬 OPEN LIVE CONTRACT CHAT (iMessage Desk)'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* iMessage / WhatsApp Interactive Chat Desk */}
+                  {activeChatBookingId === bk.id && (
+                    <View style={styles.chatDeskContainer}>
+                      <View style={styles.chatDeskHeader}>
+                        <Text style={styles.chatDeskTitle}>CONTRACT #{bk.id} DIRECT CHAT</Text>
+                        <TouchableOpacity
+                          style={styles.chatDeskRefreshBtn}
+                          onPress={() => fetchContractMessages(bk.id)}
+                        >
+                          <Text style={styles.chatDeskRefreshBtnText}>
+                            {isRefreshingChat ? 'REFRESHING...' : '🔄 REFRESH'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {/* Chat Bubbles */}
+                      <View style={styles.chatMessagesArea}>
+                        {contractMessages.length === 0 ? (
+                          <Text style={styles.noChatMessagesText}>
+                            No messages on this contract yet. Send an inquiry or requirement update below!
+                          </Text>
+                        ) : (
+                          contractMessages.map((msg, mIdx) => (
+                            <View
+                              key={msg.id || mIdx}
+                              style={[
+                                styles.chatBubbleRow,
+                                msg.is_staff ? styles.chatBubbleRowStaff : styles.chatBubbleRowClient
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.chatBubble,
+                                  msg.is_staff ? styles.chatBubbleStaff : styles.chatBubbleClient
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.chatSenderLabel,
+                                    msg.is_staff ? styles.chatSenderStaff : styles.chatSenderClient
+                                  ]}
+                                >
+                                  {msg.is_staff ? '🏛️ EMPIRECODES STAFF / ANTHONY' : `👤 ${msg.sender_name || 'YOU'}`}
+                                </Text>
+                                <Text style={styles.chatMessageBody}>{msg.message}</Text>
+                              </View>
+                            </View>
+                          ))
+                        )}
+                      </View>
+
+                      {/* Chat Input Bar */}
+                      <View style={styles.chatInputRow}>
+                        <TextInput
+                          style={styles.chatTextInput}
+                          value={chatInput}
+                          onChangeText={setChatInput}
+                          placeholder="Type a message to the architect team..."
+                          placeholderTextColor="#666"
+                          multiline
+                        />
+                        <TouchableOpacity
+                          style={[styles.chatSendBtn, isSendingChat && { opacity: 0.5 }]}
+                          onPress={sendContractMessage}
+                          disabled={isSendingChat}
+                        >
+                          <Text style={styles.chatSendBtnText}>
+                            {isSendingChat ? '...' : 'SEND ↵'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
           </View>
         </View>
 
@@ -1280,9 +1715,9 @@ Transmitted via: EmpireCodes Mobile App`;
           <Text style={styles.navText}>Projects</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem} onPress={() => scrollRef.current?.scrollTo({ y: 2400, animated: true })}>
-          <Text style={styles.navIcon}>⭐</Text>
-          <Text style={styles.navText}>Reviews</Text>
+        <TouchableOpacity style={styles.navItem} onPress={() => scrollRef.current?.scrollTo({ y: 2900, animated: true })}>
+          <Text style={[styles.navIcon, { color: '#d4af37' }]}>📦</Text>
+          <Text style={[styles.navText, { color: '#d4af37', fontWeight: 'bold' }]}>Orders/Chat</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.navItem} onPress={() => Linking.openURL('https://wa.me/2348173057810')}>
@@ -1330,70 +1765,6 @@ Transmitted via: EmpireCodes Mobile App`;
         </View>
       </Modal>
 
-      {/* ═════════════════════════════════════════════════════════════
-          MODAL: ENTERPRISE ROLE-BASED ACCESS & DRF SYNC
-          ═════════════════════════════════════════════════════════════ */}
-      <Modal visible={showAuthModal} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>ENTERPRISE ACCESS PORTAL</Text>
-              <TouchableOpacity onPress={() => setShowAuthModal(false)} style={styles.modalCloseBtn}>
-                <Text style={styles.modalCloseBtnText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.authSub}>
-              Switch roles to experience the zero-leakage enterprise microservice architecture:
-            </Text>
-
-            <View style={styles.roleSelectRow}>
-              <TouchableOpacity
-                style={[styles.roleSelectBtn, userRole === 'client' && styles.roleSelectBtnActive]}
-                onPress={() => setUserRole('client')}
-              >
-                <Text style={styles.roleSelectText}>📱 Client (Public)</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.roleSelectBtn, userRole === 'company_admin' && styles.roleSelectBtnActive]}
-                onPress={() => setUserRole('company_admin')}
-              >
-                <Text style={styles.roleSelectText}>💼 Staff Admin</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.roleSelectBtn, userRole === 'superuser' && styles.roleSelectBtnActive]}
-                onPress={() => setUserRole('superuser')}
-              >
-                <Text style={styles.roleSelectText}>⚡ Superuser</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.divider} />
-
-            <Text style={styles.inputLabel}>DRF MICROSERVICE ENDPOINT</Text>
-            <TextInput
-              style={styles.textInput}
-              value={backendUrl}
-              onChangeText={setBackendUrl}
-              placeholder="http://192.168.100.13:8000/api"
-              placeholderTextColor="#666"
-              autoCapitalize="none"
-            />
-
-            <TouchableOpacity style={styles.syncBtn} onPress={syncWithDjango} disabled={syncLoading}>
-              {syncLoading ? (
-                <ActivityIndicator color="#020202" />
-              ) : (
-                <Text style={styles.syncBtnText}>
-                  {isDrfConnected ? '✓ DRF BACKEND CONNECTED' : 'Test & Sync DRF Backend'}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
       {/* ═════════════════════════════════════════════════════════════
           MODAL: LEAVE A CLIENT REVIEW
@@ -1444,6 +1815,224 @@ Transmitted via: EmpireCodes Mobile App`;
           </View>
         </View>
       </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════
+          MODAL: BOOK ARCHITECTURAL CONTRACT
+          ═════════════════════════════════════════════════════════════ */}
+      <Modal visible={showBookingModal} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>COMMISSION ARCHITECTURAL CONTRACT</Text>
+              <TouchableOpacity onPress={() => setShowBookingModal(false)} style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.inputLabel}>SELECT CORE ARCHITECTURE DOMAIN</Text>
+              <View style={styles.domainPickerRow}>
+                {[
+                  'Fintech & Paystack Architecture',
+                  'Full-Stack DRF & React Engine',
+                  'PostgreSQL ACID Ledger Design',
+                  'Operations Research Optimization',
+                ].map((s) => (
+                  <TouchableOpacity
+                    key={s}
+                    style={[styles.domainOptionBtn, bookingService === s && styles.domainOptionBtnActive]}
+                    onPress={() => setBookingService(s)}
+                  >
+                    <Text style={[styles.domainOptionText, bookingService === s && styles.domainOptionTextActive]}>
+                      {s}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>BUDGET TIER</Text>
+              <View style={styles.domainPickerRow}>
+                {['Starter MVP (₦500k-1.5M)', 'Production MVP (₦1.5M-3.5M)', 'Enterprise Scale (₦5M+)'].map((b) => (
+                  <TouchableOpacity
+                    key={b}
+                    style={[styles.domainOptionBtn, bookingBudget === b && styles.domainOptionBtnActive]}
+                    onPress={() => setBookingBudget(b)}
+                  >
+                    <Text style={[styles.domainOptionText, bookingBudget === b && styles.domainOptionTextActive]}>
+                      {b}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>TIMELINE</Text>
+              <View style={styles.domainPickerRow}>
+                {['Urgent MVP (1-2 Weeks)', 'Standard Sprint (3-4 Weeks)', 'Quarterly Delivery'].map((t) => (
+                  <TouchableOpacity
+                    key={t}
+                    style={[styles.domainOptionBtn, bookingTimeline === t && styles.domainOptionBtnActive]}
+                    onPress={() => setBookingTimeline(t)}
+                  >
+                    <Text style={[styles.domainOptionText, bookingTimeline === t && styles.domainOptionTextActive]}>
+                      {t}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.inputLabel}>PROJECT REQUIREMENTS & SCOPE BRIEF</Text>
+              <TextInput
+                style={[styles.textInput, styles.textArea]}
+                value={bookingScope}
+                onChangeText={setBookingScope}
+                placeholder="Outline features, user flows, database models, payment gateways required..."
+                placeholderTextColor="#666"
+                multiline
+                numberOfLines={4}
+              />
+
+              <TouchableOpacity
+                style={[styles.modalActionBtn, isSubmittingBooking && { opacity: 0.6 }]}
+                onPress={handleBookingSubmit}
+                disabled={isSubmittingBooking}
+              >
+                {isSubmittingBooking ? (
+                  <ActivityIndicator color="#020202" />
+                ) : (
+                  <Text style={styles.modalActionBtnText}>TRANSMIT CONTRACT TO ARCHITECT 🏛️</Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════
+          MODAL: CLIENT IDENTITY & ACCOUNT LOGIN
+          ═════════════════════════════════════════════════════════════ */}
+      <Modal visible={showIdentityModal} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>CLIENT ACCOUNT & IDENTITY</Text>
+              <TouchableOpacity onPress={() => setShowIdentityModal(false)} style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.authSub}>
+              Enter your identity to track contract status, review deliverables, and access direct iMessage contract chat:
+            </Text>
+
+            <Text style={styles.inputLabel}>YOUR FULL NAME</Text>
+            <TextInput
+              style={styles.textInput}
+              value={clientName}
+              onChangeText={setClientName}
+              placeholder="e.g. Oluwaseun Matthew"
+              placeholderTextColor="#666"
+            />
+
+            <Text style={styles.inputLabel}>EMAIL ADDRESS (IDENTIFIER)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={clientEmail}
+              onChangeText={setClientEmail}
+              placeholder="e.g. client@example.com"
+              placeholderTextColor="#666"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            <Text style={styles.inputLabel}>WHATSAPP PHONE (FOR INSTANT ARCHITECT ALERTS)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={clientPhone}
+              onChangeText={setClientPhone}
+              placeholder="e.g. +234 813 536 2561"
+              placeholderTextColor="#666"
+              keyboardType="phone-pad"
+            />
+
+            <TouchableOpacity
+              style={styles.modalActionBtn}
+              onPress={() => handleSaveIdentity(clientName, clientEmail, clientPhone)}
+            >
+              <Text style={styles.modalActionBtnText}>CONFIRM & LOAD MY CONTRACTS ⚡</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ═════════════════════════════════════════════════════════════
+          MODAL: MICROSERVICES API HOST CONFIGURATION
+          ═════════════════════════════════════════════════════════════ */}
+      <Modal visible={showHostModal} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>DRF MICROSERVICES ENDPOINT</Text>
+              <TouchableOpacity onPress={() => setShowHostModal(false)} style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.authSub}>
+              Configure the Django REST Framework endpoint used for leads, bookings, and live contract chat:
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.hostPresetBtn,
+                apiBaseUrl === 'https://empirecodes-backend.onrender.com' && styles.hostPresetBtnActive,
+              ]}
+              onPress={() => {
+                setApiBaseUrl('https://empirecodes-backend.onrender.com');
+                setCustomHostInput('https://empirecodes-backend.onrender.com');
+              }}
+            >
+              <Text style={styles.hostPresetTitle}>☁️ Render Cloud Production</Text>
+              <Text style={styles.hostPresetSub}>https://empirecodes-backend.onrender.com</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.hostPresetBtn,
+                apiBaseUrl === 'http://192.168.100.13:8000' && styles.hostPresetBtnActive,
+              ]}
+              onPress={() => {
+                setApiBaseUrl('http://192.168.100.13:8000');
+                setCustomHostInput('http://192.168.100.13:8000');
+              }}
+            >
+              <Text style={styles.hostPresetTitle}>💻 Local Laptop Development</Text>
+              <Text style={styles.hostPresetSub}>http://192.168.100.13:8000</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.inputLabel}>CUSTOM API HOST URL</Text>
+            <TextInput
+              style={styles.textInput}
+              value={customHostInput}
+              onChangeText={setCustomHostInput}
+              placeholder="https://..."
+              placeholderTextColor="#666"
+              autoCapitalize="none"
+            />
+
+            <TouchableOpacity
+              style={styles.modalActionBtn}
+              onPress={() => {
+                setApiBaseUrl(customHostInput.trim());
+                setShowHostModal(false);
+                Alert.alert('API Host Updated', `Connected to: ${customHostInput.trim()}`);
+              }}
+            >
+              <Text style={styles.modalActionBtnText}>APPLY BACKEND HOST 🌐</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1483,38 +2072,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  rolePill: {
+  statusLivePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 14,
     borderWidth: 1,
-  },
-  pillClient: {
-    backgroundColor: 'rgba(61, 255, 139, 0.08)',
     borderColor: '#3dff8b',
+    backgroundColor: 'rgba(61, 255, 139, 0.08)',
   },
-  pillAdmin: {
-    backgroundColor: 'rgba(212, 175, 55, 0.08)',
-    borderColor: '#d4af37',
-  },
-  pillSuper: {
-    backgroundColor: 'rgba(168, 85, 247, 0.12)',
-    borderColor: '#a855f7',
-  },
-  dot: {
+  livePulseDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    marginRight: 5,
+    backgroundColor: '#3dff8b',
+    marginRight: 6,
   },
-  dotClient: { backgroundColor: '#3dff8b' },
-  dotSuper: { backgroundColor: '#a855f7' },
-  roleText: {
-    color: '#fff',
+  statusLiveText: {
+    color: '#3dff8b',
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   scrollContent: {
     paddingHorizontal: 14,
@@ -2632,5 +3211,422 @@ const styles = StyleSheet.create({
     color: '#020202',
     fontSize: 11,
     fontWeight: '900',
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // CLIENT PORTAL, BOOKINGS & LIVE CHAT DESK
+  // ─────────────────────────────────────────────────────────────
+  clientPortalCard: {
+    borderColor: '#d4af37',
+    borderWidth: 1.5,
+    backgroundColor: '#070707',
+  },
+  clientPortalSubtitle: {
+    color: '#888',
+    fontSize: 10,
+    marginTop: 2,
+  },
+  hostConfigBtn: {
+    backgroundColor: 'rgba(212, 175, 55, 0.1)',
+    borderWidth: 1,
+    borderColor: '#d4af37',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 3,
+  },
+  hostConfigBtnText: {
+    color: '#d4af37',
+    fontSize: 9,
+    fontWeight: '800',
+    fontFamily: 'monospace',
+  },
+  sessionBox: {
+    backgroundColor: '#0f0f0f',
+    borderWidth: 1,
+    borderColor: '#222',
+    borderRadius: 4,
+    padding: 10,
+    marginBottom: 12,
+  },
+  sessionActiveRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sessionStatusText: {
+    color: '#3dff8b',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  sessionNameText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  sessionPhoneText: {
+    color: '#888',
+    fontSize: 10,
+    marginTop: 1,
+  },
+  switchSessionBtn: {
+    backgroundColor: '#1f1f1f',
+    borderWidth: 1,
+    borderColor: '#333',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 3,
+  },
+  switchSessionBtnText: {
+    color: '#ccc',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  sessionPromptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  sessionPromptTitle: {
+    color: '#d4af37',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  sessionPromptSub: {
+    color: '#777',
+    fontSize: 9,
+    marginTop: 2,
+  },
+  identifyBtn: {
+    backgroundColor: '#3dff8b',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 3,
+    marginLeft: 8,
+  },
+  identifyBtnText: {
+    color: '#020202',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  portalActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 14,
+  },
+  bookContractMainBtn: {
+    flex: 1,
+    backgroundColor: '#d4af37',
+    paddingVertical: 10,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bookContractMainBtnText: {
+    color: '#020202',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  refreshOrdersBtn: {
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#333',
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refreshOrdersBtnText: {
+    color: '#aaa',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  ordersListContainer: {
+    marginTop: 4,
+  },
+  ordersListTitle: {
+    color: '#bbb',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  emptyOrdersBox: {
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: '#1f1f1f',
+    padding: 14,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  emptyOrdersText: {
+    color: '#888',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  emptyOrdersSub: {
+    color: '#555',
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  orderContractCard: {
+    backgroundColor: '#050505',
+    borderWidth: 1,
+    borderColor: '#262626',
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 10,
+  },
+  orderHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  orderIdBadge: {
+    color: '#d4af37',
+    fontSize: 9,
+    fontWeight: '900',
+    fontFamily: 'monospace',
+  },
+  orderServiceTitle: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '800',
+    marginTop: 1,
+  },
+  orderStatusPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 3,
+    borderWidth: 1,
+  },
+  statusAmber: {
+    backgroundColor: 'rgba(255, 170, 0, 0.1)',
+    borderColor: '#ffaa00',
+  },
+  statusCyan: {
+    backgroundColor: 'rgba(0, 220, 255, 0.1)',
+    borderColor: '#00dcff',
+  },
+  statusPurple: {
+    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+    borderColor: '#a855f7',
+  },
+  statusGreen: {
+    backgroundColor: 'rgba(61, 255, 139, 0.1)',
+    borderColor: '#3dff8b',
+  },
+  orderStatusPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  orderMetaGrid: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 6,
+  },
+  orderMetaItem: {
+    color: '#777',
+    fontSize: 10,
+  },
+  orderMetaVal: {
+    color: '#ccc',
+    fontWeight: '700',
+  },
+  orderScopePreview: {
+    color: '#999',
+    fontSize: 11,
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  openChatToggleBtn: {
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: '#333',
+    paddingVertical: 8,
+    borderRadius: 3,
+    alignItems: 'center',
+  },
+  openChatToggleBtnActive: {
+    borderColor: '#3dff8b',
+    backgroundColor: 'rgba(61, 255, 139, 0.08)',
+  },
+  openChatToggleBtnText: {
+    color: '#3dff8b',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  chatDeskContainer: {
+    backgroundColor: '#0a0a0a',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 4,
+    marginTop: 10,
+    padding: 10,
+  },
+  chatDeskHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#222',
+    paddingBottom: 6,
+    marginBottom: 8,
+  },
+  chatDeskTitle: {
+    color: '#d4af37',
+    fontSize: 10,
+    fontWeight: '800',
+    fontFamily: 'monospace',
+  },
+  chatDeskRefreshBtn: {
+    padding: 2,
+  },
+  chatDeskRefreshBtnText: {
+    color: '#888',
+    fontSize: 9,
+    fontFamily: 'monospace',
+  },
+  chatMessagesArea: {
+    maxHeight: 240,
+    minHeight: 80,
+    marginBottom: 8,
+  },
+  noChatMessagesText: {
+    color: '#666',
+    fontSize: 11,
+    textAlign: 'center',
+    paddingVertical: 16,
+    fontStyle: 'italic',
+  },
+  chatBubbleRow: {
+    marginBottom: 8,
+    flexDirection: 'row',
+  },
+  chatBubbleRowClient: {
+    justifyContent: 'flex-end',
+  },
+  chatBubbleRowStaff: {
+    justifyContent: 'flex-start',
+  },
+  chatBubble: {
+    maxWidth: '85%',
+    padding: 8,
+    borderRadius: 6,
+  },
+  chatBubbleClient: {
+    backgroundColor: '#102015',
+    borderWidth: 1,
+    borderColor: '#2e7d4d',
+    borderBottomRightRadius: 1,
+  },
+  chatBubbleStaff: {
+    backgroundColor: '#1f1b0a',
+    borderWidth: 1,
+    borderColor: '#d4af37',
+    borderBottomLeftRadius: 1,
+  },
+  chatSenderLabel: {
+    fontSize: 8,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  chatSenderClient: {
+    color: '#3dff8b',
+  },
+  chatSenderStaff: {
+    color: '#ffd700',
+  },
+  chatMessageBody: {
+    color: '#f0f0f0',
+    fontSize: 11,
+    lineHeight: 16,
+  },
+  chatInputRow: {
+    flexDirection: 'row',
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#333',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: 'center',
+  },
+  chatTextInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 11,
+    maxHeight: 60,
+    paddingVertical: 4,
+  },
+  chatSendBtn: {
+    backgroundColor: '#3dff8b',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 3,
+    marginLeft: 6,
+  },
+  chatSendBtnText: {
+    color: '#020202',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+
+  // Pickers & Host Presets
+  domainPickerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  domainOptionBtn: {
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#282828',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  domainOptionBtnActive: {
+    borderColor: '#d4af37',
+    backgroundColor: 'rgba(212, 175, 55, 0.15)',
+  },
+  domainOptionText: {
+    color: '#888',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  domainOptionTextActive: {
+    color: '#fff',
+  },
+  hostPresetBtn: {
+    backgroundColor: '#111',
+    borderWidth: 1,
+    borderColor: '#262626',
+    padding: 10,
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  hostPresetBtnActive: {
+    borderColor: '#3dff8b',
+    backgroundColor: 'rgba(61, 255, 139, 0.08)',
+  },
+  hostPresetTitle: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  hostPresetSub: {
+    color: '#777',
+    fontSize: 10,
+    marginTop: 2,
+    fontFamily: 'monospace',
   },
 });
